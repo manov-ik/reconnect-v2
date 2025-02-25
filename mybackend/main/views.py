@@ -6,8 +6,12 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
 
-from .models import UserGroup, Message, Event, CustomUser, GroupUser
+from .models import UserGroup, Message, Event, CustomUser, GroupUser, Notes
 
 User = get_user_model()
 
@@ -50,10 +54,16 @@ def user_login(request):
             username = data.get("username")
             password = data.get("password")
 
-            user = authenticate(username=username, password=password)  # ✅ Checks encrypted password
+            user = authenticate(username=username, password=password)
             if user:
                 login(request, user)
-                return JsonResponse({"message": "Login successful!"}, status=200)
+                return JsonResponse({
+                    "message": "Login successful!",
+                    "user": {
+                        "id": user.id,
+                        "username": user.username
+                    }
+                }, status=200)
             else:
                 return JsonResponse({"error": "Invalid credentials"}, status=400)
         except Exception as e:
@@ -180,3 +190,80 @@ def group_operations(request):
             return JsonResponse({"error": str(e)}, status=400)
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
+
+class EventViewSet(viewsets.ModelViewSet):
+    queryset = Event.objects.all()
+    permission_classes = [IsAuthenticated]
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_data(request):
+    # Get stats
+    stats = {
+        'active_students': CustomUser.objects.count(),
+        'study_groups': UserGroup.objects.count(),
+        'events_count': Event.objects.count(),
+        'active_discussions': Message.objects.filter(status='active').count()
+    }
+    
+    # Get resources by category
+    dept_resources = Notes.objects.filter(type='department')[:3]
+    placement_resources = Notes.objects.filter(type='placement')[:3]
+    student_resources = Notes.objects.filter(type='student')[:3]
+    
+    resources = {
+        'dept': ResourceSerializer(dept_resources, many=True).data,
+        'placement': ResourceSerializer(placement_resources, many=True).data,
+        'student': ResourceSerializer(student_resources, many=True).data
+    }
+    
+    # Get recent activities
+    recent_activities = []
+    # Add events
+    for event in Event.objects.all().order_by('-id')[:3]:
+        recent_activities.append({
+            'id': event.id,
+            'type': 'event',
+            'title': event.event_name,
+            'time': 'Recently'
+        })
+    
+    return Response({
+        'stats': stats,
+        'resources': resources,
+        'recentActivities': recent_activities
+    })
+
+@api_view(['GET', 'POST'])
+@permission_classes([])  # Keep authentication disabled for now
+def notes(request):
+    if request.method == 'GET':
+        notes = Notes.objects.all()
+        return Response(list(notes.values('id', 'name', 'content', 'media_url', 'timestamp', 
+                                        'posted_by__username')))
+        
+    elif request.method == 'POST':
+        try:
+            # Hard-code user ID 1 for testing
+            default_user = CustomUser.objects.get(id=1)  # Adjust ID if needed
+            
+            data = {
+                'name': request.data.get('name'),
+                'content': request.data.get('content', ''),
+                'media_url': request.FILES.get('media_file', ''),
+                'posted_by': default_user  # Hard-coded user
+            }
+            
+            note = Notes.objects.create(**data)
+            return Response({
+                'id': note.id,
+                'name': note.name,
+                'content': note.content,
+                'media_url': str(note.media_url),
+                'posted_by_username': note.posted_by.username
+            }, status=201)
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+            
+    return Response({'error': 'Method not allowed'}, status=405)
