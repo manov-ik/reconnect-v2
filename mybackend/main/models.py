@@ -51,3 +51,16 @@ class Event(models.Model):
     event_description = models.TextField()
     event_reg_link = models.URLField(blank=True, null=True)
     posted_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.event_name
+class Notes(models.Model):
+    name = models.CharField(max_length=255)
+    content = models.TextField()
+    media_url = models.FileField(upload_to='notes/', blank=True, null=True)
+    posted_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
