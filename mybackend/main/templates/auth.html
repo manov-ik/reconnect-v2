@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth</title>
+</head>
+<body>
+    <h2>Signup</h2>
+    <form method="POST" action="/api/signup/">
+        {% csrf_token %}
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <input type="text" name="ph_no" placeholder="Phone Number" required>
+        <input type="text" name="roll_no" placeholder="Roll Number" required>
+        <input type="text" name="dept" placeholder="Department" required>
+        <button type="submit">Signup</button>
+    </form>
+
+    <h2>Login</h2>
+    <form method="POST" action="/api/login/">
+        {% csrf_token %}
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+</body>
+</html>
